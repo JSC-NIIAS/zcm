@@ -104,7 +104,7 @@ class ZCM
     // Unsubscribes from a raw subscription. Effectively undoing the actions of subscribeRaw
     virtual inline void unsubscribeRaw(void*& rawSub);
 
-  private:
+  protected:
     zcm_t* zcm;
     std::vector<Subscription*> subscriptions;
 };
@@ -113,6 +113,7 @@ class ZCM
 class Subscription
 {
     friend class ZCM;
+  protected:
     void* rawSub;
 
   protected:
