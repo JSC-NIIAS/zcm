@@ -8,6 +8,7 @@ extern "C" {
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 typedef struct _zcm_eventlog_event_t zcm_eventlog_event_t;
 struct _zcm_eventlog_event_t
