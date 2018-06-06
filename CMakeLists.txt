@@ -20,7 +20,7 @@ add_definitions(
     -DUSING_ZMQ
     -DENABLE_TYPENAME_HASHING)
 
-add_library(${PROJECT_NAME} STATIC
+add_library(${PROJECT_NAME} SHARED
     zcm/json/jsoncpp.cpp
     zcm/blocking.cpp
     zcm/eventlog.c
