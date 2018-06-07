@@ -9,8 +9,8 @@ cython (ver. >= 0.23.0)
 
 ##### Установка python:
 ```sh
-sudo apt-get install python python-dev
-sudo apt-get install python3-dev
+sudo apt-get install python python-dev python-setuptools
+sudo apt-get install python3-dev python3-setuptools
 ```
 
 ##### Установка pip и pip3:
@@ -30,7 +30,7 @@ sudo apt-get install cython3
 sudo apt-get install libzmq-dev
 ```
 
-##### Установка ZCM поддержки python3(после сборки ZCM с помощью waf/cmake):
+##### Установка ZCM поддержки python3(после сборки(build) и установки(install) ZCM с помощью waf/cmake):
 
 При сборке ZCM через waf необходимо выставить флаги --use-python --use-zmq
 
