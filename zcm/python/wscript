@@ -12,7 +12,7 @@ def build(ctx):
     ctx(name = 'cyzcm',
         rule = cythonize,
         color = 'GREEN',
-        source = 'zcm.pyx',
+        source = 'zero_cm.pyx',
         target = 'zcm.c')
 
     ctx.shlib(name = 'pyzcm',
