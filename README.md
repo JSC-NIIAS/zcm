@@ -26,7 +26,7 @@ cd zcm
 sudo su
 export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-arm64
 export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/
-CXX=/usr/bin/g++-5 CC=/usr/bin/gcc-5 ./waf configure --use-all
+CXX=/usr/bin/g++-5 CC=/usr/bin/gcc-5 ./waf configure --use-all --use-thirdparty
 CXX=/usr/bin/g++-5 CC=/usr/bin/gcc-5 ./waf build
 CXX=/usr/bin/g++-5 CC=/usr/bin/gcc-5 ./waf install
 exit
