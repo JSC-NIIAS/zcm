@@ -6,7 +6,7 @@
 To install ZCM correctly (with ```--use-all``` flag), you should make some preparations with you system
 1. Install packages 
 ```
-sudo apt-get install cython3 python3-dev python3-pip python-dev cython openjdk-8-jre openjdk-8-jdk libelf1 libelf-dev npm nodejs
+sudo apt-get install cython3 python3-dev python3-pip python-dev cython openjdk-8-jre openjdk-8-jdk libelf1 libelf-dev npm nodejs gcc-5 g++-5
 ```
 2. Build and install ZeroMQ
 ````
