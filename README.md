@@ -1,10 +1,60 @@
 ## [Explore the web-based readme](http://zerocm.github.io/zcm/)
-
-
+[![Build Status](https://travis-ci.org/ZeroCM/zcm.svg?branch=master)](https://travis-ci.org/ZeroCM/zcm)
 
 # ZCM: Zero Communications and Marshalling
-
-[![Build Status](https://travis-ci.org/ZeroCM/zcm.svg?branch=master)](https://travis-ci.org/ZeroCM/zcm)
+## Installation
+To install ZCM correctly (with ```--use-all``` flag), you should make some preparations with you system
+1. Install packages 
+```
+sudo apt-get install cython3 python3-dev python3-pip python-dev cython openjdk-8-jre openjdk-8-jdk libelf1 libelf-dev npm nodejs gcc-5 g++-5
+```
+2. Build and install ZeroMQ
+````
+cd <your workspace directory>
+wget https://github.com/zeromq/zeromq4-1/releases/download/v4.1.6/zeromq-4.1.6.tar.gz --no-check-certificate
+tar -xvzf zeromq-4.1.6.tar.gz
+cd zeromq-4.1.6/
+./configure
+make -j6 # Instead of "6" you should set your number of CPU cores 
+sudo make install
+````
+3. Build and install ZeroCM
+```
+cd <your workspace directory>
+git clone http://192.168.0.203:17990/scm/elsd/zcm.git -b release --recursive
+cd zcm
+sudo su
+export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-arm64
+export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/
+CXX=/usr/bin/g++-5 CC=/usr/bin/gcc-5 ./waf configure --use-all --use-thirdparty
+CXX=/usr/bin/g++-5 CC=/usr/bin/gcc-5 ./waf build
+CXX=/usr/bin/g++-5 CC=/usr/bin/gcc-5 ./waf install
+exit
+```
+Before next command you should check you current directory. It has to be ```<your workspace directory>/zcm```
+```
+pip3 install zcm/python
+```
+If you see an ```setup-tools``` error - execute the next command and repeat the command above
+```
+pip3 install setup-tools
+```
+4. Check your installation:
+    4.1 Python
+    ```
+    python3
+    import zero_cm as zcm
+    ```
+    4.2 Java
+    ```
+    zcm-logplayer-gui -u ipc
+    ```
+    If you see a ```java``` error - please set your runtime java version to 8 instead of 11
+    ```
+    update-alternatives --config java
+    ```
+## Description
+# ZCM: Zero Communications and Marshalling
 
 ZCM is a micro-framework for message-passing and data-marshalling, designed originally
 for robotics systems where high-bandwidth and low-latency are critical and the variance in
