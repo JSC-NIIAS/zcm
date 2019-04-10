@@ -42,8 +42,8 @@ pip3 install setup-tools
 4. Check your installation:
     4.1 Python
     ```
-    python
-    import zerocm as zcm
+    python3
+    import zero_cm as zcm
     ```
     4.2 Java
     ```
