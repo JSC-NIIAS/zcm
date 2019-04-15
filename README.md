@@ -34,7 +34,7 @@ If you need to install zcm on other target, you should change your architecture
 ```
 # example: arm64
 export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-arm64
-````
+```
 Before next command you should check you current directory. It has to be ```<your workspace directory>/zcm```
 ```
 pip3 install zcm/python
