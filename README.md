@@ -24,13 +24,17 @@ cd <your workspace directory>
 git clone http://192.168.0.203:17990/scm/elsd/zcm.git -b release --recursive
 cd zcm
 sudo su
-export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-arm64
 export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/
 CXX=/usr/bin/g++-5 CC=/usr/bin/gcc-5 ./waf configure --use-all --use-thirdparty
 CXX=/usr/bin/g++-5 CC=/usr/bin/gcc-5 ./waf build
 CXX=/usr/bin/g++-5 CC=/usr/bin/gcc-5 ./waf install
 exit
 ```
+If you need to install zcm on other target, you should change your architecture
+```
+# example: arm64
+export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-arm64
+````
 Before next command you should check you current directory. It has to be ```<your workspace directory>/zcm```
 ```
 pip3 install zcm/python
