@@ -13,5 +13,7 @@ add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 set_target_properties(${PROJECT_NAME}
                       PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-#target_link_libraries(${PROJECT_NAME} libzcm.a)
-target_link_libraries(${PROJECT_NAME} libzcm.a libzcm_tools_util.a)
+link_directories(${CMAKE_SOURCE_DIR}/build/util
+                 ${CMAKE_SOURCE_DIR}/build/)
+
+target_link_libraries(${PROJECT_NAME} zcm libzcm_tools_util.a)
