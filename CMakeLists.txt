@@ -11,8 +11,10 @@ option(CROSSCOMPILE "ARM crosscompil" OFF)
 
 if(CROSSCOMPILE)
     include_directories(../../staging/usr/include)
+    link_directories(../../staging/usr/lib)
 else()
     include_directories(../../host/usr/include)
+    link_directories(../../host/usr/lib)
 endif(CROSSCOMPILE)
 
 add_definitions(
