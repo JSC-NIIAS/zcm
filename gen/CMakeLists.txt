@@ -22,7 +22,8 @@ set(SOURCES
     ZCMGen.cpp
     Main.cpp)
 
-include_directories(../)
+include_directories(../
+                    .)
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 

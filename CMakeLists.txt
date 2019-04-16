@@ -75,4 +75,4 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     zcm/transport
     zcm/transport/udpm)
 
-#add_subdirectory(gen)
+add_subdirectory(gen)
