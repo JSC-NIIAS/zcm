@@ -16,5 +16,5 @@ set_target_properties(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME} zcm libzcm_tools_util.a)
 
-link_directories(${CMAKE_SOURCE_DIR}/build/util
+link_directories(${CMAKE_SOURCE_DIR}/build/tools/cpp/util
                  ${CMAKE_SOURCE_DIR}/build)
