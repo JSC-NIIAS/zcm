@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.8)
 project(zcm_tools_util)
 set (CMAKE_CXX_FLAGS "-std=c++11 -ldl -lelf -lzcm -O2 ${CMAKE_CXX_FLAGS}")
 
-add_library(${PROJECT_NAME} STATIC
+add_library(${PROJECT_NAME} SHARED
     SymtabElf.cpp
     TranscoderPluginDb.cpp
     TypeDb.cpp)
