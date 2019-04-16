@@ -7,7 +7,11 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_CXX_FLAGS "-std=c++11 -lzmq ${CMAKE_CXX_FLAGS}")
 set(CMAKE_C_FLAGS "-std=c99 -lzmq ${CMAKE_C_FLAGS}")
 
-include_directories(../../staging/usr/include)
+option(CROSSCOMPILE "ARM crosscompil" OFF)
+
+if(CROSSCOMPILE)
+    include_directories(../../staging/usr/include)
+endif(CROSSCOMPILE)
 
 add_definitions(
     -DHAVE_ZMQ=1
