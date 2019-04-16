@@ -4,18 +4,19 @@ project(zcm C CXX)
 
 set(${PROJECT_NAME}_DESCRIPTION "ZCM lib for ARM")
 set(CMAKE_VERBOSE_MAKEFILE ON)
-set(CMAKE_CXX_FLAGS "-std=c++11 -lzmq ${CMAKE_CXX_FLAGS}")
-set(CMAKE_C_FLAGS "-std=c99 -lzmq ${CMAKE_C_FLAGS}")
 
 option(CROSSCOMPILE "ARM crosscompil" OFF)
 
 if(CROSSCOMPILE)
-    include_directories(../../staging/usr/include)
-    link_directories(../../staging/usr/lib)
+    include_directories(${CMAKE_SOURCE_DIR}/../../staging/usr/include)
+    link_directories(${CMAKE_SOURCE_DIR}/../../staging/usr/lib)
 else()
-    include_directories(../../host/usr/include)
-    link_directories(../../host/usr/lib)
+    include_directories(${CMAKE_SOURCE_DIR}/../../host/usr/include)
+    link_directories(${CMAKE_SOURCE_DIR}/../../host/usr/lib)
 endif(CROSSCOMPILE)
+
+set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
+set(CMAKE_C_FLAGS "-std=c99 ${CMAKE_C_FLAGS}")
 
 add_definitions(
     -DHAVE_ZMQ=1
@@ -56,13 +57,8 @@ install(TARGETS ${PROJECT_NAME}
        LIBRARY DESTINATION /usr/lib
        PUBLIC_HEADER DESTINATION /usr/include/zcm)
 
-#find_library(ZCMLIB name zmq
-#    PATHS
-#    /usr/lib
-#    /usr/lib64
-#    /usr/local/lib)
+target_link_libraries(${PROJECT_NAME} zmq)
 
-#
 set_target_properties(${PROJECT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON
     PUBLIC_HEADER zcm/zcm.h
     zcm/zcm-cpp.hpp
@@ -77,7 +73,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON
     zcm/zcm_private.h)
 
 target_include_directories(${PROJECT_NAME} PRIVATE
-    .
+    ${CMAKE_SOURCE_DIR}
     zcm
     zcm/util
     zcm/json
