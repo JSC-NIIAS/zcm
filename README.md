@@ -25,7 +25,7 @@ git clone http://192.168.0.203:17990/scm/elsd/zcm.git -b release --recursive
 cd zcm
 sudo su
 export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/
-CXX=/usr/bin/g++-5 CC=/usr/bin/gcc-5 ./waf configure --use-all --use-thirdparty
+CXX=/usr/bin/g++-5 CC=/usr/bin/gcc-5 ./waf configure --use-all --use-third-party
 CXX=/usr/bin/g++-5 CC=/usr/bin/gcc-5 ./waf build
 CXX=/usr/bin/g++-5 CC=/usr/bin/gcc-5 ./waf install
 exit
@@ -39,9 +39,9 @@ Before next command you should check you current directory. It has to be ```<you
 ```
 pip3 install zcm/python
 ```
-If you see an ```setup-tools``` error - execute the next command and repeat the command above
+If you see an ```setuptools``` error - execute the next command and repeat the command above
 ```
-pip3 install setup-tools
+pip3 install setuptools
 ```
 4. Check your installation:
     4.1 Python
