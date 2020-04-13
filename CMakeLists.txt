@@ -28,6 +28,7 @@ add_definitions(
     -DUSING_TRANS_IPC
     -DUSING_TRANS_SERIAL
     -DUSING_TRANS_UDPM
+    -DUSING_TRANS_UDP
     -DUSING_ZMQ
     -DENABLE_TYPENAME_HASHING)
 
@@ -49,6 +50,8 @@ add_library(${PROJECT_NAME} SHARED
     zcm/transport/udpm/mempool.cpp
     zcm/transport/udpm/udpm.cpp
     zcm/transport/udpm/udpmsocket.cpp
+    zcm/transport/udp/udp.cpp
+    zcm/transport/udp/udpsocket.cpp
     zcm/util/debug.cpp
     zcm/util/lockfile.cpp)
 
