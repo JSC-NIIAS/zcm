@@ -42,6 +42,11 @@ be used to *summon* the transport:
     <td><code>  zcm_create("udpm://239.255.76.67:7667?ttl=0")           </code></td>
   </tr>
   <tr>
+    <td>        UDP Unicast                                           </td>
+    <td><code>  udp://&lt;src-address&gt;:&lt;src-port&gt;;&lt;dst-address&gt;:&lt;dst-port&gt;?ttl=&lt;ttl&gt; </code></td>
+    <td><code>  zcm_create("udp://192.168.0.10:2002;192.168.0.20:3002?ttl=0")           </code></td>
+  </tr>
+  <tr>
     <td>        Serial                                                  </td>
     <td><code>  serial://&lt;path-to-device&gt;?baud=&lt;baud&gt;       </code></td>
     <td><code>  zcm_create("serial:///dev/ttyUSB0?baud=115200")         </code></td>

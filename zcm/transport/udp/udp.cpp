@@ -31,18 +31,23 @@ static i32 utimeInSeconds()
  */
 struct Params
 {
-    string ip;
-    struct in_addr addr;
-    u16            port;
+    UdpAddress src_udp_address;
+    UdpAddress dst_udp_address;
+
+    struct in_addr src_addr;
+    struct in_addr dst_addr;
+
     u8             ttl;
     size_t         recv_buf_size;
 
-    Params(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
-    {
+    Params(UdpAddress& src_address, UdpAddress& dst_address, size_t recv_buf_size, u8 ttl) {
+        src_udp_address = src_address;
+        dst_udp_address = dst_address;
+
         // TODO verify that the IP and PORT are vaild
-        this->ip = ip;
-        inet_aton(ip.c_str(), (struct in_addr*) &this->addr);
-        this->port = port;
+        inet_aton(src_udp_address.getIP().c_str(), (struct in_addr*) &this->src_addr);
+        inet_aton(dst_udp_address.getIP().c_str(), (struct in_addr*) &this->dst_addr);
+
         this->recv_buf_size = recv_buf_size;
         this->ttl = ttl;
     }
@@ -51,10 +56,9 @@ struct Params
 struct UDP
 {
     Params params;
-    UDPAddress destAddr;
 
-    UDPSocket recvfd;
-    UDPSocket sendfd;
+    UdpSocket recvfd;
+    UdpSocket sendfd;
 
     /* size of the kernel UDP receive buffer */
     size_t kernel_rbuf_sz = 0;
@@ -73,7 +77,7 @@ struct UDP
     u32          msg_seqno = 0; // rolling counter of how many messages transmitted
 
     /***** Methods ******/
-    UDP(const string& ip, u16 port, size_t recv_buf_size, u8 ttl);
+    UDP(Params params);
     bool init();
     ~UDP();
 
@@ -290,7 +294,7 @@ int UDP::sendmsg(zcm_msg_t msg)
         hdr.setMagic(ZCM_MAGIC_SHORT);
         hdr.setMsgSeqno(msg_seqno);
 
-        ssize_t status = sendfd.sendBuffers(destAddr,
+        ssize_t status = sendfd.sendBuffers(params.dst_udp_address,
                               (char*)&hdr, sizeof(hdr),
                               (char*)msg.channel, channel_size+1,
                               (char*)msg.buf, msg.len);
@@ -339,7 +343,7 @@ int UDP::sendmsg(zcm_msg_t msg)
         int packet_size = sizeof(hdr) + (channel_size + 1) + firstfrag_datasize;
         fragment_offset += firstfrag_datasize;
 
-        ssize_t status = sendfd.sendBuffers(destAddr,
+        ssize_t status = sendfd.sendBuffers(params.dst_udp_address,
                                             (char*)&hdr, sizeof(hdr),
                                             (char*)msg.channel, channel_size+1,
                                             (char*)msg.buf, firstfrag_datasize);
@@ -350,7 +354,7 @@ int UDP::sendmsg(zcm_msg_t msg)
             hdr.fragment_no = htons(frag_no);
 
             int fraglen = std::min(fragment_size, (int)msg.len - (int)fragment_offset);
-            status = sendfd.sendBuffers(destAddr,
+            status = sendfd.sendBuffers(params.dst_udp_address,
                                         (char*)&hdr, sizeof(hdr),
                                         (char*)(msg.buf + fragment_offset), fraglen);
 
@@ -391,23 +395,24 @@ UDP::~UDP()
     ZCM_DEBUG("closing zcm context");
 }
 
-UDP::UDP(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
-    : params(ip, port, recv_buf_size, ttl),
-      destAddr(ip, port)
+UDP::UDP(Params params)
+    : params(params)
 {
 }
 
 bool UDP::init()
 {
     ZCM_DEBUG("Initializing ZCM UDP context...");
-    ZCM_DEBUG("Unicast %s:%d", params.ip.c_str(), params.port);
-    UDPSocket::checkConnection(params.ip, params.port);
+    ZCM_DEBUG("Source address %s:%d", params.src_udp_address.getIP().c_str(), params.src_udp_address.getPort());
+    ZCM_DEBUG("Destination address %s:%d", params.dst_udp_address.getIP().c_str(), params.dst_udp_address.getPort());
 
-    sendfd = UDPSocket::createSendSocket(params.addr, params.port, params.ttl);
+    UdpSocket::checkConnection(params.dst_udp_address.getIP().c_str(), params.dst_udp_address.getPort());
+
+    sendfd = UdpSocket::createSendSocket(params.ttl);
     if (!sendfd.isOpen()) return false;
     kernel_sbuf_sz = sendfd.getSendBufSize();
 
-    recvfd = UDPSocket::createRecvSocket(params.addr, params.port);
+    recvfd = UdpSocket::createRecvSocket(params.src_addr, params.src_udp_address.getIP(), params.src_udp_address.getPort());
     if (!recvfd.isOpen()) return false;
     kernel_rbuf_sz = recvfd.getRecvBufSize();
 
@@ -437,8 +442,8 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
     UDP udp;
 
-    ZCM_TRANS_CLASSNAME(const string& ip, u16 port, size_t recv_buf_size, u8 ttl)
-        : udp(ip, port, recv_buf_size, ttl)
+    ZCM_TRANS_CLASSNAME(const Params params)
+        : udp(params)
     {
         trans_type = ZCM_BLOCKING;
         vtbl = &methods;
@@ -509,14 +514,41 @@ static vector<string> split(const string& str, char delimiter)
 
 static zcm_trans_t *createUdp(zcm_url_t *url)
 {
-    auto *ip = zcm_url_address(url);
-    vector<string> parts = split(ip, ':');
+    string zcm_url_string = zcm_url_address(url);
+
+    vector<string> parts = split(zcm_url_string, ';');
+
     if (parts.size() != 2) {
-        ZCM_DEBUG("ERROR: Url format is <ip-address>:<port-num>");
+        ZCM_DEBUG("ERROR: Url format is <src-address>:<src-port-num>;<dst-address>:<dst-port-num>");
         return nullptr;
     }
-    auto& address = parts[0];
-    auto& port = parts[1];
+
+
+
+    vector<string> src_url = split(parts[0], ':');
+
+    if (src_url.size() != 2) {
+        ZCM_DEBUG("ERROR: dst_url format is <ip-address>:<port-num>");
+        return nullptr;
+    }
+
+    auto& src_address = src_url[0];
+    auto& src_port = src_url[1];
+    UdpAddress udp_src_address(src_address, atoi(src_port.c_str()));
+
+
+    vector<string> dst_url = split(parts[1], ':');
+
+    if (dst_url.size() != 2) {
+        ZCM_DEBUG("ERROR: dst_url format is <ip-address>:<port-num>");
+        return nullptr;
+    }
+
+    auto& dst_address = dst_url[0];
+    auto& dst_port = dst_url[1];
+    UdpAddress udp_dst_address(dst_address, atoi(dst_port.c_str()));
+
+
 
     auto *opts = zcm_url_opts(url);
     auto *ttl = optFind(opts, "ttl");
@@ -524,14 +556,20 @@ static zcm_trans_t *createUdp(zcm_url_t *url)
         ZCM_DEBUG("No ttl specified. Using default ttl=0");
         ttl = "0";
     }
+
     size_t recv_buf_size = 1024;
-    auto *trans = new ZCM_TRANS_CLASSNAME(address, atoi(port.c_str()), recv_buf_size, atoi(ttl));
+
+    Params params(udp_src_address, udp_dst_address, recv_buf_size, atoi(ttl));
+
+    auto *trans = new ZCM_TRANS_CLASSNAME(params);
     if (!trans->init()) {
         delete trans;
         return nullptr;
     } else {
         return trans;
     }
+
+
 }
 
 #ifdef USING_TRANS_UDP
