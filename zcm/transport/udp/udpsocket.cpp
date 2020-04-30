@@ -1,5 +1,5 @@
-#include "udpsocket.hpp"
-#include "buffers.hpp"
+#include "zcm/transport/udp/udpsocket.hpp"
+#include "zcm/transport/udpm/buffers.hpp"
 
 // Platform specifics
 #ifdef WIN32
