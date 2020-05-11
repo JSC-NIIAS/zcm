@@ -1,6 +1,6 @@
 #pragma once
-#include "udpm.hpp"
-#include "buffers.hpp"
+#include <zcm/transport/udpm/udpm.hpp>
+#include <zcm/transport/udpm/buffers.hpp>
 
 class UdpdAddress
 {

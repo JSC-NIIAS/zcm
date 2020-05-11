@@ -1,8 +1,8 @@
-#include <buffers.hpp>
-#include <mempool.hpp>
+#include <zcm/transport/udpm/buffers.hpp>
+#include <zcm/transport/udpm/mempool.hpp>
 
-#include "udpd.hpp"
-#include "udpdsocket.hpp"
+#include <zcm/transport/udpd/udpd.hpp>
+#include <zcm/transport/udpd/udpdsocket.hpp>
 
 #include <zcm/transport.h>
 #include <zcm/transport_registrar.h>
