@@ -31,6 +31,10 @@ static i32 utimeInSeconds()
  */
 
 
+std::thread keep_alive_watchguard;
+std::mutex keep_alive_lock;
+
+
 struct UDPD
 {
     struct Params
@@ -446,7 +450,9 @@ bool UDPD::init()
         return false;
     }
 
-    std::thread keep_alive_watchguard([&](){
+    keep_alive_watchguard = std::thread([&](){
+
+        keep_alive_lock.lock();
 
         uint64_t now_us = std::chrono::duration_cast<std::chrono::
                 microseconds>(std::chrono::high_resolution_clock::
@@ -458,17 +464,17 @@ bool UDPD::init()
             timestamp = dst.second.second;
 
             if ((now_us - timestamp) / 1000000 > params.keep_alive) {
-                dst_sock_pool.erase(dst.first);
                 ZCM_DEBUG("Deleted from pool: %s", dst.first.c_str());
+                dst_sock_pool.erase(dst.first);
             }
         }
+
+        keep_alive_lock.unlock();
 
         // check for keep alive every second
         sleep(1);
 
     });
-
-    keep_alive_watchguard.detach();
 
     return true;
 }

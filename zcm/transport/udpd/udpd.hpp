@@ -12,6 +12,8 @@
 #include <cassert>
 #include <map>
 #include <chrono>
+#include <thread>
+#include <mutex>
 
 // TODO: get rid of these
 #include <thread>
