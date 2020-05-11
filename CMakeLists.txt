@@ -5,6 +5,7 @@ project(zcm C CXX)
 set(${PROJECT_NAME}_DESCRIPTION "ZCM lib for ARM")
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
+
 option(CROSSCOMPILE "ARM crosscompil" OFF)
 
 if(CROSSCOMPILE)
@@ -27,8 +28,9 @@ add_definitions(
     -DUSING_TRANS_INPROC
     -DUSING_TRANS_IPC
     -DUSING_TRANS_SERIAL
-    -DUSING_TRANS_UDPM
     -DUSING_TRANS_UDP
+    -DUSING_TRANS_UDPD
+    -DUSING_TRANS_UDPM
     -DUSING_ZMQ
     -DENABLE_TYPENAME_HASHING)
 
@@ -52,6 +54,8 @@ add_library(${PROJECT_NAME} SHARED
     zcm/transport/udpm/udpmsocket.cpp
     zcm/transport/udp/udp.cpp
     zcm/transport/udp/udpsocket.cpp
+    zcm/transport/udpd/udpd.cpp
+    zcm/transport/udpd/udpdsocket.cpp
     zcm/util/debug.cpp
     zcm/util/lockfile.cpp)
 
@@ -61,6 +65,7 @@ install(TARGETS ${PROJECT_NAME}
        PUBLIC_HEADER DESTINATION /usr/include/zcm)
 
 target_link_libraries(${PROJECT_NAME} zmq)
+
 
 set_target_properties(${PROJECT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON
     PUBLIC_HEADER zcm/zcm.h

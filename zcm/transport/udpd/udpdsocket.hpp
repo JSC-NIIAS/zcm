@@ -1,15 +1,14 @@
 #pragma once
-#include "zcm/transport/udpm/udpm.hpp"
-#include "zcm/transport/udpm/buffers.hpp"
+#include "udpm.hpp"
+#include "buffers.hpp"
 
-class UdpAddress
+class UdpdAddress
 {
-  public:
+public:
 
-    UdpAddress() = default;
+    UdpdAddress() = default;
 
-
-    UdpAddress(const string& ip, u16 port)
+    UdpdAddress(const string& ip, u16 port)
     {
         this->ip = ip;
         this->port = port;
@@ -25,17 +24,17 @@ class UdpAddress
     struct sockaddr* getAddrPtr() const { return (struct sockaddr*)&addr; }
     size_t getAddrSize() const { return sizeof(addr); }
 
-  private:
+private:
     string ip;
     u16 port;
     struct sockaddr_in addr;
 };
 
-class UdpSocket
+class UdpdSocket
 {
   public:
-    UdpSocket();
-    ~UdpSocket();
+    UdpdSocket();
+    ~UdpdSocket();
     bool isOpen();
     void close();
 
@@ -53,17 +52,19 @@ class UdpSocket
     bool waitUntilData(int timeout);
     int recvPacket(Packet *pkt);
 
-    ssize_t sendBuffers(const UdpAddress& dest, const char *a, size_t alen);
-    ssize_t sendBuffers(const UdpAddress& dest, const char *a, size_t alen,
+    ssize_t sendBuffers(const UdpdAddress& dest, const char *a, size_t alen);
+    ssize_t sendBuffers(const UdpdAddress& dest, const char *a, size_t alen,
                         const char *b, size_t blen) const;
-    ssize_t sendBuffers(const UdpAddress& dest, const char *a, size_t alen,
+    ssize_t sendBuffers(const UdpdAddress& dest, const char *a, size_t alen,
                         const char *b, size_t blen, const char *c, size_t clen) const;
 
     static bool checkConnection(const string& ip, u16 port);
     void checkAndWarnAboutSmallBuffer(size_t datalen, size_t kbufsize);
 
-    static UdpSocket createSendSocket(u8 ttl);
-    static UdpSocket createRecvSocket(struct in_addr ipaddr, string ip, u16 port);
+    static UdpdSocket createSendSocket(std::string ip, u16 port, u8 ttl);
+    static UdpdSocket createRecvSocket(struct in_addr ipaddr, string ip, u16 port);
+
+    UdpdAddress dst_addr;
 
   private:
     SOCKET fd = -1;
@@ -71,11 +72,11 @@ class UdpSocket
 
   private:
     // Disallow copies
-    UdpSocket(const UdpSocket&) = delete;
-    UdpSocket& operator=(const UdpSocket&) = delete;
+    UdpdSocket(const UdpdSocket&) = delete;
+    UdpdSocket& operator=(const UdpdSocket&) = delete;
 
   public:
     // Allow moves
-    UdpSocket(UdpSocket&& other) { std::swap(this->fd, other.fd); }
-    UdpSocket& operator=(UdpSocket&& other) { std::swap(this->fd, other.fd); return *this; }
+    UdpdSocket(UdpdSocket&& other) { std::swap(this->fd, other.fd); }
+    UdpdSocket& operator=(UdpdSocket&& other) { std::swap(this->fd, other.fd); return *this; }
 };

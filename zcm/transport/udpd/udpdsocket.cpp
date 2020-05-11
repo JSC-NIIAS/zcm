@@ -1,5 +1,5 @@
-#include "zcm/transport/udp/udpsocket.hpp"
-#include "zcm/transport/udpm/buffers.hpp"
+#include "udpdsocket.hpp"
+#include "buffers.hpp"
 
 // Platform specifics
 #ifdef WIN32
@@ -23,12 +23,12 @@ struct Platform
         mreq.imr_multiaddr = multiaddr;
         mreq.imr_interface.s_addr = INADDR_ANY;
         ZCM_DEBUG("ZCM: joining multicast group");
-        setsockopt(fd, IPPROTO_UDP, IP_ADD_MEMBERSHIP, (char*)&mreq, sizeof(mreq));
+        setsockopt(fd, IPPROTO_UDPD, IP_ADD_MEMBERSHIP, (char*)&mreq, sizeof(mreq));
         // ignore any errors in windows... see issue LCM #60
         return true;
     }
 
-    static void checkRoutingTable(UDPAddress& addr)
+    static void checkRoutingTable(UDPDAddress& addr)
     {
         // UNIMPL
     }
@@ -38,7 +38,7 @@ struct Platform
 {
     static void closesocket(int fd) { close(fd); }
     static void setKernelBuffers(int fd) {}
-    static void checkRoutingTable(UdpAddress& addr)
+    static void checkRoutingTable(UdpdAddress& addr)
     {
 #ifdef __linux__
         // TODO
@@ -47,21 +47,21 @@ struct Platform
 };
 #endif
 
-UdpSocket::UdpSocket()
+UdpdSocket::UdpdSocket()
 {
 }
 
-UdpSocket::~UdpSocket()
+UdpdSocket::~UdpdSocket()
 {
     close();
 }
 
-bool UdpSocket::isOpen()
+bool UdpdSocket::isOpen()
 {
     return fd != -1;
 }
 
-void UdpSocket::close()
+void UdpdSocket::close()
 {
     if (fd != -1) {
         Platform::closesocket(fd);
@@ -69,17 +69,17 @@ void UdpSocket::close()
     }
 }
 
-bool UdpSocket::init()
+bool UdpdSocket::init()
 {
     fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (fd < 0) {
-        perror("allocating ZCM udp socket");
+        perror("allocating ZCM udpd socket");
         return false;
     }
     return true;
 }
 
-bool UdpSocket::setTTL(u8 ttl)
+bool UdpdSocket::setTTL(u8 ttl)
 {
     if (ttl == 0)
         ZCM_DEBUG("ZCM ip TTL set to 0.  Packets will not leave localhost");
@@ -87,13 +87,13 @@ bool UdpSocket::setTTL(u8 ttl)
     ZCM_DEBUG("ZCM: setting unicast packet TTL to %d", ttl);
     if (setsockopt(fd, IPPROTO_IP, IP_TTL,
                    (char *) &ttl, sizeof (ttl)) < 0) {
-        perror("setsockopt(IPPROTO_UDP, IP_TTL)");
+        perror("setsockopt(IPPROTO_UDPD, IP_TTL)");
         return false;
     }
     return true;
 }
 
-bool UdpSocket::bindAdress(in_addr ipaddr, string ip, u16 port)
+bool UdpdSocket::bindAdress(in_addr ipaddr, string ip, u16 port)
 {
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof (addr));
@@ -110,7 +110,7 @@ bool UdpSocket::bindAdress(in_addr ipaddr, string ip, u16 port)
     return true;
 }
 
-bool UdpSocket::setReuseAddr()
+bool UdpdSocket::setReuseAddr()
 {
     // allow other applications on the local machine to also bind to this
     // unicast address and port
@@ -124,7 +124,7 @@ bool UdpSocket::setReuseAddr()
     return true;
 }
 
-bool UdpSocket::setReusePort()
+bool UdpdSocket::setReusePort()
 {
 #ifdef USE_REUSEPORT
     /* Mac OS and FreeBSD require the REUSEPORT option in addition
@@ -141,7 +141,7 @@ bool UdpSocket::setReusePort()
     return true;
 }
 
-bool UdpSocket::enablePacketTimestamp()
+bool UdpdSocket::enablePacketTimestamp()
 {
     /* Enable per-packet timestamping by the kernel, if available */
 #ifdef SO_TIMESTAMP
@@ -151,7 +151,7 @@ bool UdpSocket::enablePacketTimestamp()
     return true;
 }
 
-size_t UdpSocket::getRecvBufSize()
+size_t UdpdSocket::getRecvBufSize()
 {
     int size;
     uint retsize = sizeof(int);
@@ -160,7 +160,7 @@ size_t UdpSocket::getRecvBufSize()
     return size;
 }
 
-size_t UdpSocket::getSendBufSize()
+size_t UdpdSocket::getSendBufSize()
 {
     int size;
     uint retsize = sizeof(int);
@@ -169,7 +169,7 @@ size_t UdpSocket::getSendBufSize()
     return size;
 }
 
-bool UdpSocket::waitUntilData(int timeout)
+bool UdpdSocket::waitUntilData(int timeout)
 {
     assert(isOpen());
 
@@ -190,12 +190,12 @@ bool UdpSocket::waitUntilData(int timeout)
         // data is available
         return true;
     } else {
-        perror("udp_read_packet -- select:");
+        perror("udpd_read_packet -- select:");
         return false;
     }
 }
 
-int UdpSocket::recvPacket(Packet *pkt)
+int UdpdSocket::recvPacket(Packet *pkt)
 {
     struct iovec vec;
     vec.iov_base = pkt->buf.data;
@@ -246,7 +246,7 @@ int UdpSocket::recvPacket(Packet *pkt)
     return ret;
 }
 
-ssize_t UdpSocket::sendBuffers(const UdpAddress& dest, const char *a, size_t alen)
+ssize_t UdpdSocket::sendBuffers(const UdpdAddress& dest, const char *a, size_t alen)
 {
     struct iovec iv;
     iv.iov_base = (char*)a;
@@ -264,7 +264,7 @@ ssize_t UdpSocket::sendBuffers(const UdpAddress& dest, const char *a, size_t ale
     return::sendmsg(fd, &mhdr, 0);
 }
 
-ssize_t UdpSocket::sendBuffers(const UdpAddress& dest, const char *a, size_t alen,
+ssize_t UdpdSocket::sendBuffers(const UdpdAddress& dest, const char *a, size_t alen,
                                const char *b, size_t blen) const
 {
     struct iovec iv[2];
@@ -285,7 +285,7 @@ ssize_t UdpSocket::sendBuffers(const UdpAddress& dest, const char *a, size_t ale
     return::sendmsg(fd, &mhdr, 0);
 }
 
-ssize_t UdpSocket::sendBuffers(const UdpAddress& dest, const char *a, size_t alen,
+ssize_t UdpdSocket::sendBuffers(const UdpdAddress& dest, const char *a, size_t alen,
                                const char *b, size_t blen, const char *c, size_t clen) const
 {
     struct iovec iv[3];
@@ -308,9 +308,9 @@ ssize_t UdpSocket::sendBuffers(const UdpAddress& dest, const char *a, size_t ale
     return::sendmsg(fd, &mhdr, 0);
 }
 
-bool UdpSocket::checkConnection(const string& ip, u16 port)
+bool UdpdSocket::checkConnection(const string& ip, u16 port)
 {
-    UdpAddress addr{ip, port};
+    UdpdAddress addr{ip, port};
     SOCKET testfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (connect(testfd, addr.getAddrPtr(), addr.getAddrSize()) < 0) {
         perror ("connect");
@@ -321,7 +321,7 @@ bool UdpSocket::checkConnection(const string& ip, u16 port)
     return true;
 }
 
-void UdpSocket::checkAndWarnAboutSmallBuffer(size_t datalen, size_t kbufsize)
+void UdpdSocket::checkAndWarnAboutSmallBuffer(size_t datalen, size_t kbufsize)
 {
     // TODO: This should probably be in Platform
 #ifdef __linux__
@@ -333,25 +333,26 @@ void UdpSocket::checkAndWarnAboutSmallBuffer(size_t datalen, size_t kbufsize)
         warnedAboutSmallBuffer = true;
         fprintf(stderr,
                 "==== ZCM Warning ===\n"
-                "ZCM detected that large packets are being received, but the kernel UDP\n"
+                "ZCM detected that large packets are being received, but the kernel UDPD\n"
                 "receive buffer is very small.  The possibility of dropping packets due to\n"
                 "insufficient buffer space is very high.\n");
     }
 #endif
 }
 
-UdpSocket UdpSocket::createSendSocket(u8 ttl)
+UdpdSocket UdpdSocket::createSendSocket(std::string ip, u16 port, u8 ttl)
 {
+    UdpdSocket sock;
+    sock.dst_addr = UdpdAddress(ip, port);
 
-    UdpSocket sock;
     if (!sock.init())                        { sock.close(); return sock; }
     if (!sock.setTTL(ttl))                   { sock.close(); return sock; }
     return sock;
 }
 
-UdpSocket UdpSocket::createRecvSocket(struct in_addr ipaddr, string ip, u16 port)
+UdpdSocket UdpdSocket::createRecvSocket(struct in_addr ipaddr, string ip, u16 port)
 {
-    UdpSocket sock;
+    UdpdSocket sock;
     if (!sock.init())                        { sock.close(); return sock; }
     if (!sock.setReuseAddr())                { sock.close(); return sock; }
     if (!sock.setReusePort())                { sock.close(); return sock; }

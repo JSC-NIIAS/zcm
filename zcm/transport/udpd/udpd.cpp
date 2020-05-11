@@ -1,8 +1,8 @@
-#include <zcm/transport/udpm/buffers.hpp>
-#include <zcm/transport/udpm/mempool.hpp>
+#include <buffers.hpp>
+#include <mempool.hpp>
 
-#include "zcm/transport/udp/udp.hpp"
-#include "zcm/transport/udp/udpsocket.hpp"
+#include "udpd.hpp"
+#include "udpdsocket.hpp"
 
 #include <zcm/transport.h>
 #include <zcm/transport_registrar.h>
@@ -18,7 +18,7 @@ static i32 utimeInSeconds()
 }
 
 /**
- * UDP_params_t:
+ * UDPD_params_t:
  * @addr:        ip address
  * @port:        ip port
  * @ttl:         if 0, then packets never leave local host.
@@ -30,38 +30,38 @@ static i32 utimeInSeconds()
  *
  */
 
-struct UDP
+
+struct UDPD
 {
     struct Params
     {
-        UdpAddress src_udp_address;
-        UdpAddress dst_udp_address;
+        UdpdAddress src_udpd_address;
 
         struct in_addr src_addr;
-        struct in_addr dst_addr;
 
         u8             ttl;
+        u8             keep_alive;
         size_t         recv_buf_size;
 
-        Params(UdpAddress& src_address, UdpAddress& dst_address, size_t recv_buf_size, u8 ttl) {
-            src_udp_address = src_address;
-            dst_udp_address = dst_address;
+        Params(UdpdAddress& src_address, size_t recv_buf_size, u8 ttl, u8 keep_alive) {
+            src_udpd_address = src_address;
 
             // TODO verify that the IP and PORT are vaild
-            inet_aton(src_udp_address.getIP().c_str(), (struct in_addr*) &this->src_addr);
-            inet_aton(dst_udp_address.getIP().c_str(), (struct in_addr*) &this->dst_addr);
+            inet_aton(src_udpd_address.getIP().c_str(), (struct in_addr*) &this->src_addr);
 
             this->recv_buf_size = recv_buf_size;
             this->ttl = ttl;
+            this->keep_alive = keep_alive;
         }
     };
 
     Params params;
 
-    UdpSocket recvfd;
-    UdpSocket sendfd;
+    UdpdSocket recvfd;
 
-    /* size of the kernel UDP receive buffer */
+    std::map<std::string, std::pair<UdpdSocket, uint64_t>> dst_sock_pool;
+
+    /* size of the kernel UDPD receive buffer */
     size_t kernel_rbuf_sz = 0;
     size_t kernel_sbuf_sz = 0;
     bool warned_about_small_kernel_buf = false;
@@ -69,18 +69,18 @@ struct UDP
     MessagePool pool {MAX_FRAG_BUF_TOTAL_SIZE, MAX_NUM_FRAG_BUFS};
 
     /* other variables */
-    u32          udp_rx = 0;            // packets received and processed
-    u32          udp_discarded_bad = 0; // packets discarded because they were bad
+    u32          udpd_rx = 0;            // packets received and processed
+    u32          udpd_discarded_bad = 0; // packets discarded because they were bad
                                     // somehow
-    double       udp_low_watermark = 1.0; // least buffer available
-    i32          udp_last_report_secs = 0;
+    double       udpd_low_watermark = 1.0; // least buffer available
+    i32          udpd_last_report_secs = 0;
 
     u32          msg_seqno = 0; // rolling counter of how many messages transmitted
 
     /***** Methods ******/
-    UDP(Params params);
+    UDPD(Params params);
     bool init();
-    ~UDP();
+    ~UDPD();
 
     int handle();
 
@@ -99,18 +99,18 @@ struct UDP
     void checkForMessageLoss();
 };
 
-Message *UDP::recvShort(Packet *pkt, u32 sz)
+Message *UDPD::recvShort(Packet *pkt, u32 sz)
 {
     MsgHeaderShort *hdr = pkt->asHeaderShort();
 
     size_t clen = hdr->getChannelLen();
     if (clen > ZCM_CHANNEL_MAXLEN) {
         ZCM_DEBUG("bad channel name length");
-        udp_discarded_bad++;
+        udpd_discarded_bad++;
         return NULL;
     }
 
-    udp_rx++;
+    udpd_rx++;
 
     Message *msg = pool.allocMessageEmpty();
     msg->utime = pkt->utime;
@@ -123,7 +123,7 @@ Message *UDP::recvShort(Packet *pkt, u32 sz)
     return msg;
 }
 
-Message *UDP::recvFragment(Packet *pkt, u32 sz)
+Message *UDPD::recvFragment(Packet *pkt, u32 sz)
 {
     MsgHeaderLong *hdr = pkt->asHeaderLong();
 
@@ -157,7 +157,7 @@ Message *UDP::recvFragment(Packet *pkt, u32 sz)
         int channel_sz = strlen(channel);
         if (channel_sz > ZCM_CHANNEL_MAXLEN) {
             ZCM_DEBUG("bad channel name length");
-            udp_discarded_bad++;
+            udpd_discarded_bad++;
             return NULL;
         }
 
@@ -205,7 +205,7 @@ Message *UDP::recvFragment(Packet *pkt, u32 sz)
     return msg;
 }
 
-void UDP::checkForMessageLoss()
+void UDPD::checkForMessageLoss()
 {
     // ISSUE-101 TODO: add this back
     // TODO warn about message loss somewhere else.
@@ -213,34 +213,34 @@ void UDP::checkForMessageLoss()
     // u32 ring_used = ringbuf->get_used();
 
     // double buf_avail = ((double)(ring_capacity - ring_used)) / ring_capacity;
-    // if (buf_avail < udp_low_watermark)
-    //     udp_low_watermark = buf_avail;
+    // if (buf_avail < udpd_low_watermark)
+    //     udpd_low_watermark = buf_avail;
 
     // i32 tm = utimeInSeconds();
-    // int elapsedsecs = tm - udp_last_report_secs;
+    // int elapsedsecs = tm - udpd_last_report_secs;
     // if (elapsedsecs > 2) {
-    //    if (udp_discarded_bad > 0 || udp_low_watermark < 0.5) {
+    //    if (udpd_discarded_bad > 0 || udpd_low_watermark < 0.5) {
     //        fprintf(stderr,
     //                "%d ZCM loss %4.1f%% : %5d err, "
     //                "buf avail %4.1f%%\n",
     //                (int) tm,
-    //                udp_discarded_bad * 100.0 / (udp_rx + udp_discarded_bad),
-    //                udp_discarded_bad,
-    //                100.0 * udp_low_watermark);
+    //                udpd_discarded_bad * 100.0 / (udpd_rx + udpd_discarded_bad),
+    //                udpd_discarded_bad,
+    //                100.0 * udpd_low_watermark);
 
-    //        udp_rx = 0;
-    //        udp_discarded_bad = 0;
-    //        udp_last_report_secs = tm;
-    //        udp_low_watermark = HUGE;
+    //        udpd_rx = 0;
+    //        udpd_discarded_bad = 0;
+    //        udpd_last_report_secs = tm;
+    //        udpd_low_watermark = HUGE;
     //    }
     // }
 }
 
 // read continuously until a complete message arrives
-Message *UDP::readMessage(int timeout)
+Message *UDPD::readMessage(int timeout)
 {
     Packet *pkt = pool.allocPacket(ZCM_MAX_UNFRAGMENTED_PACKET_SIZE);
-    UDP::checkForMessageLoss();
+    UDPD::checkForMessageLoss();
 
     Message *msg = NULL;
     while (!msg) {
@@ -249,9 +249,26 @@ Message *UDP::readMessage(int timeout)
             break;
 
         int sz = recvfd.recvPacket(pkt);
+
+        // working only with IPV4. IPV6 removed in case of optimization
+        auto from_sa_in = reinterpret_cast<sockaddr_in*>(&pkt->from);
+        std::string ip(inet_ntoa(from_sa_in->sin_addr));
+        u16 port =  htons (from_sa_in->sin_port);
+
+        std::string ip_port = ip + ":" + std::to_string(port);
+
+        if ( dst_sock_pool.count(ip_port) > 0) {
+            // update socket timestamp to keep alive
+            dst_sock_pool[ip_port].second = pkt->utime;
+        } else {
+            // add socket to pool
+            dst_sock_pool[ip_port] = {UdpdSocket::createSendSocket(ip, port, params.ttl), pkt->utime};
+            ZCM_DEBUG("Added to pool: %s", ip_port.c_str());
+        }
+
         if (sz < 0) {
-            ZCM_DEBUG("udp_read_packet -- recvmsg");
-            udp_discarded_bad++;
+            ZCM_DEBUG("udpd_read_packet -- recvmsg");
+            udpd_discarded_bad++;
             continue;
         }
 
@@ -259,7 +276,7 @@ Message *UDP::readMessage(int timeout)
 
         if (sz < (int)sizeof(MsgHeaderShort)) {
             // packet too short to be ZCM
-            udp_discarded_bad++;
+            udpd_discarded_bad++;
             continue;
         }
 
@@ -270,7 +287,7 @@ Message *UDP::readMessage(int timeout)
             msg = recvFragment(pkt, sz);
         else {
             ZCM_DEBUG("ZCM: bad magic");
-            udp_discarded_bad++;
+            udpd_discarded_bad++;
             continue;
         }
     }
@@ -279,7 +296,7 @@ Message *UDP::readMessage(int timeout)
     return msg;
 }
 
-int UDP::sendmsg(zcm_msg_t msg)
+int UDPD::sendmsg(zcm_msg_t msg)
 {
     int channel_size = strlen(msg.channel);
     if (channel_size > ZCM_CHANNEL_MAXLEN) {
@@ -295,21 +312,24 @@ int UDP::sendmsg(zcm_msg_t msg)
         hdr.setMagic(ZCM_MAGIC_SHORT);
         hdr.setMsgSeqno(msg_seqno);
 
-        ssize_t status = sendfd.sendBuffers(params.dst_udp_address,
-                              (char*)&hdr, sizeof(hdr),
-                              (char*)msg.channel, channel_size+1,
-                              (char*)msg.buf, msg.len);
+        for (auto& dst : dst_sock_pool) {
 
-        int packet_size = sizeof(hdr) + payload_size;
-        ZCM_DEBUG("transmitting %zu byte [%s] payload (%d byte pkt)",
-                  msg.len, msg.channel, packet_size);
+            auto udpd_sock = std::move(dst.second.first);
+            ssize_t status = udpd_sock.sendBuffers(udpd_sock.dst_addr,
+                                                (char*)&hdr, sizeof(hdr),
+                                                (char*)msg.channel, channel_size+1,
+                                                (char*)msg.buf, msg.len);
+
+            uint64_t packet_size = sizeof(hdr) + payload_size;
+            ZCM_DEBUG("transmitting %zu byte [%s] payload (%d byte pkt) to %s",
+                      msg.len, msg.channel, packet_size, dst.first.c_str());
+        }
+
         msg_seqno++;
 
-        return (status == packet_size) ? 0 : status;
-    }
+        return 0;
 
-
-    else {
+    } else {
         // message is large.  fragment into multiple packets
         int fragment_size = ZCM_FRAGMENT_MAX_PAYLOAD;
         int nfragments = payload_size / fragment_size +
@@ -341,31 +361,40 @@ int UDP::sendmsg(zcm_msg_t msg)
         size_t firstfrag_datasize = fragment_size - (channel_size + 1);
         assert(firstfrag_datasize <= msg.len);
 
-        int packet_size = sizeof(hdr) + (channel_size + 1) + firstfrag_datasize;
+        //uint64_t packet_size = sizeof(hdr) + (channel_size + 1) + firstfrag_datasize;
         fragment_offset += firstfrag_datasize;
 
-        ssize_t status = sendfd.sendBuffers(params.dst_udp_address,
+        for (auto& dst : dst_sock_pool) {
+
+            auto udpd_sock = std::move(dst.second.first);
+            ssize_t status = udpd_sock.sendBuffers(udpd_sock.dst_addr,
+                                                   (char*)&hdr, sizeof(hdr),
+                                                   (char*)msg.channel, channel_size+1,
+                                                   (char*)msg.buf, msg.len);
+
+            uint64_t packet_size = sizeof(hdr) + payload_size;
+            ZCM_DEBUG("transmitting %zu byte [%s] payload (%d byte pkt) to %s",
+                      msg.len, msg.channel, packet_size, dst.first.c_str());
+
+            // transmit the rest of the fragments
+            for (u16 frag_no = 1; packet_size == status && frag_no < nfragments; frag_no++) {
+                hdr.fragment_offset = htonl(fragment_offset);
+                hdr.fragment_no = htons(frag_no);
+
+                int fraglen = std::min(fragment_size, (int)msg.len - (int)fragment_offset);
+                status = udpd_sock.sendBuffers(udpd_sock.dst_addr,
                                             (char*)&hdr, sizeof(hdr),
-                                            (char*)msg.channel, channel_size+1,
-                                            (char*)msg.buf, firstfrag_datasize);
+                                            (char*)(msg.buf + fragment_offset), fraglen);
 
-        // transmit the rest of the fragments
-        for (u16 frag_no = 1; packet_size == status && frag_no < nfragments; frag_no++) {
-            hdr.fragment_offset = htonl(fragment_offset);
-            hdr.fragment_no = htons(frag_no);
+                fragment_offset += fraglen;
+                packet_size = sizeof(hdr) + fraglen;
+            }
 
-            int fraglen = std::min(fragment_size, (int)msg.len - (int)fragment_offset);
-            status = sendfd.sendBuffers(params.dst_udp_address,
-                                        (char*)&hdr, sizeof(hdr),
-                                        (char*)(msg.buf + fragment_offset), fraglen);
+            // sanity check
+            if (0 == status) {
+                assert(fragment_offset == msg.len);
+            }
 
-            fragment_offset += fraglen;
-            packet_size = sizeof(hdr) + fraglen;
-        }
-
-        // sanity check
-        if (0 == status) {
-            assert(fragment_offset == msg.len);
         }
 
         msg_seqno++;
@@ -374,7 +403,7 @@ int UDP::sendmsg(zcm_msg_t msg)
     return 0;
 }
 
-int UDP::recvmsg(zcm_msg_t *msg, int timeout)
+int UDPD::recvmsg(zcm_msg_t *msg, int timeout)
 {
     if (m)
         pool.freeMessage(m);
@@ -391,29 +420,22 @@ int UDP::recvmsg(zcm_msg_t *msg, int timeout)
     return ZCM_EOK;
 }
 
-UDP::~UDP()
+UDPD::~UDPD()
 {
     ZCM_DEBUG("closing zcm context");
 }
 
-UDP::UDP(Params params)
+UDPD::UDPD(Params params)
     : params(params)
 {
 }
 
-bool UDP::init()
+bool UDPD::init()
 {
-    ZCM_DEBUG("Initializing ZCM UDP context...");
-    ZCM_DEBUG("Source address %s:%d", params.src_udp_address.getIP().c_str(), params.src_udp_address.getPort());
-    ZCM_DEBUG("Destination address %s:%d", params.dst_udp_address.getIP().c_str(), params.dst_udp_address.getPort());
+    ZCM_DEBUG("Initializing ZCM UDPD context...");
+    ZCM_DEBUG("Source address %s:%d", params.src_udpd_address.getIP().c_str(), params.src_udpd_address.getPort());
 
-    UdpSocket::checkConnection(params.dst_udp_address.getIP().c_str(), params.dst_udp_address.getPort());
-
-    sendfd = UdpSocket::createSendSocket(params.ttl);
-    if (!sendfd.isOpen()) return false;
-    kernel_sbuf_sz = sendfd.getSendBufSize();
-
-    recvfd = UdpSocket::createRecvSocket(params.src_addr, params.src_udp_address.getIP(), params.src_udp_address.getPort());
+    recvfd = UdpdSocket::createRecvSocket(params.src_addr, params.src_udpd_address.getIP(), params.src_udpd_address.getPort());
     if (!recvfd.isOpen()) return false;
     kernel_rbuf_sz = recvfd.getRecvBufSize();
 
@@ -424,33 +446,58 @@ bool UDP::init()
         return false;
     }
 
+    std::thread keep_alive_watchguard([&](){
+
+        uint64_t now_us = std::chrono::duration_cast<std::chrono::
+                microseconds>(std::chrono::high_resolution_clock::
+                now().time_since_epoch()).count();
+
+        uint64_t timestamp;
+
+        for (auto& dst : dst_sock_pool) {
+            timestamp = dst.second.second;
+
+            if ((now_us - timestamp) / 1000000 > params.keep_alive) {
+                dst_sock_pool.erase(dst.first);
+                ZCM_DEBUG("Deleted from pool: %s", dst.first.c_str());
+            }
+        }
+
+        // check for keep alive every second
+        sleep(1);
+
+    });
+
+    keep_alive_watchguard.detach();
+
     return true;
 }
 
-bool UDP::selftest()
+bool UDPD::selftest()
 {
 #ifdef ENABLE_SELFTEST
-    ZCM_DEBUG("UDP conducting self test");
+    ZCM_DEBUG("UDPD conducting self test");
     assert(0 && "unimpl");
 #endif
     return true;
 }
 
 // Define this the class name you want
-#define ZCM_TRANS_CLASSNAME TransportUDP
+#define ZCM_TRANS_CLASSNAME TransportUDPD
 
 struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
 {
-    UDP udp;
+    UDPD udpd;
 
-    ZCM_TRANS_CLASSNAME(const UDP::Params params)
-        : udp(params)
+    ZCM_TRANS_CLASSNAME(const UDPD::Params params)
+        : udpd(params)
     {
+        auto a = params;
         trans_type = ZCM_BLOCKING;
         vtbl = &methods;
     }
 
-    bool init() { return udp.init(); }
+    bool init() { return udpd.init(); }
 
     /********************** STATICS **********************/
     static zcm_trans_methods_t methods;
@@ -464,18 +511,18 @@ struct ZCM_TRANS_CLASSNAME : public zcm_trans_t
     { return MTU; }
 
     static int _sendmsg(zcm_trans_t *zt, zcm_msg_t msg)
-    { return cast(zt)->udp.sendmsg(msg); }
+    { return cast(zt)->udpd.sendmsg(msg); }
 
     static int _recvmsgEnable(zcm_trans_t *zt, const char *channel, bool enable)
     { return ZCM_EOK; }
 
     static int _recvmsg(zcm_trans_t *zt, zcm_msg_t *msg, int timeout)
-    { return cast(zt)->udp.recvmsg(msg, timeout); }
+    { return cast(zt)->udpd.recvmsg(msg, timeout); }
 
     static void _destroy(zcm_trans_t *zt)
     { delete cast(zt); }
 
-    static const TransportRegister regUdp;
+    static const TransportRegister regUdpd;
 };
 
 zcm_trans_methods_t ZCM_TRANS_CLASSNAME::methods = {
@@ -513,54 +560,37 @@ static vector<string> split(const string& str, char delimiter)
     return v;
 }
 
-static zcm_trans_t *createUdp(zcm_url_t *url)
+static zcm_trans_t *createUdpd(zcm_url_t *url)
 {
-    string zcm_url_string = zcm_url_address(url);
 
-    vector<string> parts = split(zcm_url_string, ';');
-
+    auto *ip = zcm_url_address(url);
+    vector<string> parts = split(ip, ':');
     if (parts.size() != 2) {
-        ZCM_DEBUG("ERROR: Url format is <src-address>:<src-port-num>;<dst-address>:<dst-port-num>");
+        ZCM_DEBUG("ERROR: Url format is <ip-address>:<port-num>");
         return nullptr;
     }
 
-
-
-    vector<string> src_url = split(parts[0], ':');
-
-    if (src_url.size() != 2) {
-        ZCM_DEBUG("ERROR: dst_url format is <ip-address>:<port-num>");
-        return nullptr;
-    }
-
-    auto& src_address = src_url[0];
-    auto& src_port = src_url[1];
-    UdpAddress udp_src_address(src_address, atoi(src_port.c_str()));
-
-
-    vector<string> dst_url = split(parts[1], ':');
-
-    if (dst_url.size() != 2) {
-        ZCM_DEBUG("ERROR: dst_url format is <ip-address>:<port-num>");
-        return nullptr;
-    }
-
-    auto& dst_address = dst_url[0];
-    auto& dst_port = dst_url[1];
-    UdpAddress udp_dst_address(dst_address, atoi(dst_port.c_str()));
-
+    auto& src_address = parts[0];
+    auto& src_port = parts[1];
+    UdpdAddress udpd_src_address(src_address, atoi(src_port.c_str()));
 
 
     auto *opts = zcm_url_opts(url);
-    auto *ttl = optFind(opts, "ttl");
+    auto ttl = optFind(opts, "ttl");
     if (!ttl) {
         ZCM_DEBUG("No ttl specified. Using default ttl=0");
         ttl = "0";
     }
 
+    auto *keep_alive = optFind(opts, "keep_alive");
+    if (!keep_alive) {
+        ZCM_DEBUG("No keep alive time specified. Using default keep_alive=5 sec");
+        keep_alive = "5";
+    }
+
     size_t recv_buf_size = 1024;
 
-    UDP::Params params(udp_src_address, udp_dst_address, recv_buf_size, atoi(ttl));
+    UDPD::Params params(udpd_src_address, recv_buf_size, atoi(ttl), atoi(keep_alive));
 
     auto *trans = new ZCM_TRANS_CLASSNAME(params);
     if (!trans->init()) {
@@ -573,8 +603,8 @@ static zcm_trans_t *createUdp(zcm_url_t *url)
 
 }
 
-#ifdef USING_TRANS_UDP
+#ifdef USING_TRANS_UDPD
 // Register this transport with ZCM
-const TransportRegister ZCM_TRANS_CLASSNAME::regUdp(
-    "udp", "Transfer data via UDP (e.g. 'udp')", createUdp);
+const TransportRegister ZCM_TRANS_CLASSNAME::regUdpd(
+    "udpd", "Transfer data via UDPD (e.g. 'udpd')", createUdpd);
 #endif
