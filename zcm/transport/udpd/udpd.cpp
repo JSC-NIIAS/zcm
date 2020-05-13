@@ -321,13 +321,13 @@ int UDPD::sendmsg(zcm_msg_t msg)
         for (auto& dst : dst_sock_pool) {
 
             auto udpd_sock = std::move(dst.second.first);
-            ssize_t status = udpd_sock.sendBuffers(udpd_sock.dst_addr,
-                                                (char*)&hdr, sizeof(hdr),
-                                                (char*)msg.channel, channel_size+1,
-                                                (char*)msg.buf, msg.len);
+            udpd_sock.sendBuffers(udpd_sock.dst_addr,
+                                  (char*)&hdr, sizeof(hdr),
+                                  (char*)msg.channel, channel_size+1,
+                                  (char*)msg.buf, msg.len);
 
             uint64_t packet_size = sizeof(hdr) + payload_size;
-            ZCM_DEBUG("transmitting %zu byte [%s] payload (%d byte pkt) to %s",
+            ZCM_DEBUG("transmitting %zu byte [%s] payload (%ld byte pkt) to %s",
                       msg.len, msg.channel, packet_size, dst.first.c_str());
         }
 
@@ -338,8 +338,7 @@ int UDPD::sendmsg(zcm_msg_t msg)
     } else {
         // message is large.  fragment into multiple packets
         int fragment_size = ZCM_FRAGMENT_MAX_PAYLOAD;
-        int nfragments = payload_size / fragment_size +
-            !!(payload_size % fragment_size);
+        int nfragments = payload_size / fragment_size + (payload_size % fragment_size != 0);
 
         if (nfragments > 65535) {
             fprintf(stderr, "ZCM error: too much data for a single message\n");
@@ -379,11 +378,11 @@ int UDPD::sendmsg(zcm_msg_t msg)
                                                    (char*)msg.buf, msg.len);
 
             uint64_t packet_size = sizeof(hdr) + payload_size;
-            ZCM_DEBUG("transmitting %zu byte [%s] payload (%d byte pkt) to %s",
+            ZCM_DEBUG("transmitting %zu byte [%s] payload (%ld byte pkt) to %s",
                       msg.len, msg.channel, packet_size, dst.first.c_str());
 
             // transmit the rest of the fragments
-            for (u16 frag_no = 1; packet_size == status && frag_no < nfragments; frag_no++) {
+            for (u16 frag_no = 1; packet_size == (uint64_t)(status) && frag_no < nfragments; frag_no++) {
                 hdr.fragment_offset = htonl(fragment_offset);
                 hdr.fragment_no = htons(frag_no);
 
