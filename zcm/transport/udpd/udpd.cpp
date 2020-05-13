@@ -8,6 +8,7 @@
 #include <zcm/transport_registrar.h>
 #include <zcm/transport_register.hpp>
 
+
 #define MTU (1<<28)
 
 static i32 utimeInSeconds()
@@ -31,12 +32,13 @@ static i32 utimeInSeconds()
  */
 
 
-std::thread keep_alive_watchguard;
-std::mutex keep_alive_lock;
-
 
 struct UDPD
 {
+
+    std::thread keep_alive_watchguard;
+    std::mutex keep_alive_lock;
+
     struct Params
     {
         UdpdAddress src_udpd_address;
@@ -450,31 +452,38 @@ bool UDPD::init()
         return false;
     }
 
-    keep_alive_watchguard = std::thread([&](){
+    if (params.keep_alive > 0) {
 
-        keep_alive_lock.lock();
+        keep_alive_watchguard = std::thread([&]() {
 
-        uint64_t now_us = std::chrono::duration_cast<std::chrono::
-                microseconds>(std::chrono::high_resolution_clock::
-                now().time_since_epoch()).count();
+            while (true) {
 
-        uint64_t timestamp;
+                keep_alive_lock.lock();
 
-        for (auto& dst : dst_sock_pool) {
-            timestamp = dst.second.second;
+                uint64_t now_us = std::chrono::duration_cast<std::chrono::
+                        microseconds>(std::chrono::high_resolution_clock::
+                        now().time_since_epoch()).count();
 
-            if ((now_us - timestamp) / 1000000 > params.keep_alive) {
-                ZCM_DEBUG("Deleted from pool: %s", dst.first.c_str());
-                dst_sock_pool.erase(dst.first);
+                uint64_t timestamp;
+
+                for (auto &dst : dst_sock_pool) {
+                    timestamp = dst.second.second;
+
+                    if ((now_us - timestamp) / 1000000 > params.keep_alive) {
+                        ZCM_DEBUG("Deleted from pool: %s", dst.first.c_str());
+                        dst_sock_pool.erase(dst.first);
+                    }
+                }
+
+                keep_alive_lock.unlock();
+
+                // check for keep alive every second
+                sleep(1);
             }
-        }
+        });
 
-        keep_alive_lock.unlock();
-
-        // check for keep alive every second
-        sleep(1);
-
-    });
+        keep_alive_watchguard.detach();
+    }
 
     return true;
 }
@@ -590,8 +599,8 @@ static zcm_trans_t *createUdpd(zcm_url_t *url)
 
     auto *keep_alive = optFind(opts, "keep_alive");
     if (!keep_alive) {
-        ZCM_DEBUG("No keep alive time specified. Using default keep_alive=5 sec");
-        keep_alive = "5";
+        ZCM_DEBUG("No keep alive time specified. Working without destination pool cleaning");
+        keep_alive = "0";
     }
 
     size_t recv_buf_size = 1024;
@@ -605,7 +614,6 @@ static zcm_trans_t *createUdpd(zcm_url_t *url)
     } else {
         return trans;
     }
-
 
 }
 
