@@ -32,6 +32,9 @@ static i32 utimeInSeconds()
 
 struct UDP
 {
+
+    std::thread keep_alive_sender;
+
     struct Params
     {
         UdpAddress src_udp_address;
@@ -41,9 +44,10 @@ struct UDP
         struct in_addr dst_addr;
 
         u8             ttl;
+        u8             keep_alive;
         size_t         recv_buf_size;
 
-        Params(UdpAddress& src_address, UdpAddress& dst_address, size_t recv_buf_size, u8 ttl) {
+        Params(UdpAddress& src_address, UdpAddress& dst_address, size_t recv_buf_size, u8 ttl, u8 keel_alive) {
             src_udp_address = src_address;
             dst_udp_address = dst_address;
 
@@ -53,6 +57,7 @@ struct UDP
 
             this->recv_buf_size = recv_buf_size;
             this->ttl = ttl;
+            this->keep_alive = keel_alive;
         }
     };
 
@@ -424,8 +429,27 @@ bool UDP::init()
         return false;
     }
 
+
+    if (params.keep_alive > 0) {
+
+        keep_alive_sender = std::thread([&]() {
+
+            zcm_msg_t msg{0, nullptr,0, nullptr};
+
+            while(true) {
+                sendmsg(msg);
+                sleep(params.keep_alive);
+            }
+
+        });
+
+        keep_alive_sender.detach();
+
+    }
+
     return true;
 }
+#pragma clang diagnostic pop
 
 bool UDP::selftest()
 {
@@ -550,7 +574,6 @@ static zcm_trans_t *createUdp(zcm_url_t *url)
     UdpAddress udp_dst_address(dst_address, atoi(dst_port.c_str()));
 
 
-
     auto *opts = zcm_url_opts(url);
     auto *ttl = optFind(opts, "ttl");
     if (!ttl) {
@@ -558,9 +581,16 @@ static zcm_trans_t *createUdp(zcm_url_t *url)
         ttl = "0";
     }
 
+
+    auto *keep_alive = optFind(opts, "keep_alive");
+    if (!keep_alive) {
+        ZCM_DEBUG("No keep alive time specified. Working without destination pool cleaning");
+        keep_alive = "0";
+    }
+
     size_t recv_buf_size = 1024;
 
-    UDP::Params params(udp_src_address, udp_dst_address, recv_buf_size, atoi(ttl));
+    UDP::Params params(udp_src_address, udp_dst_address, recv_buf_size, atoi(ttl), atoi(keep_alive));
 
     auto *trans = new ZCM_TRANS_CLASSNAME(params);
     if (!trans->init()) {

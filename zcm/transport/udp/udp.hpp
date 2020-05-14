@@ -36,6 +36,7 @@ using namespace std;
 # include <sys/socket.h>
 # include <sys/poll.h>
 # include <sys/select.h>
+#include <thread>
 typedef int SOCKET;
 #endif
 
