@@ -434,7 +434,7 @@ bool UDP::init()
 
         keep_alive_sender = std::thread([&]() {
 
-            zcm_msg_t msg{0, nullptr,0, nullptr};
+            zcm_msg_t msg{0, "keep_alive",0, 0};
 
             while(true) {
                 sendmsg(msg);
