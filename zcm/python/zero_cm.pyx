@@ -80,6 +80,11 @@ cdef void handler_cb(const zcm_recv_buf_t* rbuf, const char* channel, void* usr)
     msg = subs.msgtype.decode(rbuf.data[:rbuf.data_size])
     subs.handler(channel.decode('utf-8'), msg)
 
+cdef void handler_cb_fake(const zcm_recv_buf_t* rbuf, const char* channel, void* usr) with gil:
+    subs = (<ZCMSubscription>usr)
+    # msg = subs.msgtype.decode(rbuf.data[:rbuf.data_size])
+    subs.handler(channel.decode('utf-8'))
+
 cdef class ZCM:
     cdef zcm_t* zcm
     def __cinit__(self, str url=""):
@@ -104,6 +109,15 @@ cdef class ZCM:
         subs.msgtype = msgtype
         while True:
             subs.sub = zcm_try_subscribe(self.zcm, channel.encode('utf-8'), handler_cb, <void*> subs)
+            if subs.sub != NULL:
+                return subs
+            time.sleep(0) # yield the gil
+    def subscribe_fake(self, str channel, handler):
+        cdef ZCMSubscription subs = ZCMSubscription()
+        subs.handler = handler
+        subs.msgtype = None
+        while True:
+            subs.sub = zcm_try_subscribe(self.zcm, channel.encode('utf-8'), handler_cb_fake, <void*> subs)
             if subs.sub != NULL:
                 return subs
             time.sleep(0) # yield the gil
