@@ -78,6 +78,7 @@ struct Serial
   private:
     string port;
     int fd = -1;
+    lockfile_t* lf;
 };
 
 bool Serial::open(const string& port_, int baud, bool hwFlowControl)
@@ -89,7 +90,8 @@ bool Serial::open(const string& port_, int baud, bool hwFlowControl)
         return false;
     }
 
-    if (!lockfile_trylock(port_.c_str())) {
+    lf = lockfile_trylock(port_.c_str());
+    if (!lf) {
         ZCM_DEBUG("failed to create lock file, refusing to open serial device (%s)",
                   port_.c_str());
         return false;
@@ -152,8 +154,9 @@ bool Serial::open(const string& port_, int baud, bool hwFlowControl)
     }
     this->fd = -1;
     // Unlock the lock file
-    if (port != "") {
-        lockfile_unlock(port.c_str());
+    if (lf) {
+        lockfile_unlock(lf);
+        lf = nullptr;
     }
     this->port = "";
 
@@ -167,9 +170,10 @@ void Serial::close()
         ::close(fd);
         fd = 0;
     }
-    if (port != "") {
-        lockfile_unlock(port.c_str());
-        port = "";
+    if (port != "") port = "";
+    if (lf) {
+        lockfile_unlock(lf);
+        lf = nullptr;
     }
 }
 

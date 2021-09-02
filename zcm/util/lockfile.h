@@ -15,8 +15,14 @@
 extern "C" {
 #endif
 
-bool lockfile_trylock(const char *name);
-void lockfile_unlock(const char *name);
+typedef struct
+{
+    int fd;
+    char* name;
+} lockfile_t;
+
+lockfile_t* lockfile_trylock(const char *name);
+void lockfile_unlock(lockfile_t* lf);
 
 #ifdef __cplusplus
 }
