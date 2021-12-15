@@ -1,7 +1,7 @@
 #include "zcm/transport.h"
 #include "zcm/transport_registrar.h"
 #include "zcm/transport_register.hpp"
-#include "zcm/util/lockfile.h"
+#include "lockfile.h"
 #include "zcm/util/debug.h"
 
 #include "util/TimeUtil.hpp"
