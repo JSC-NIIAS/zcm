@@ -4,7 +4,7 @@
 #include "zcm/transport_registrar.h"
 #include "zcm/transport_register.hpp"
 #include "zcm/util/debug.h"
-#include "lockfile.h"
+#include "zcm/util/lockfile.h"
 #include <zmq.h>
 
 #include "util/TimeUtil.hpp"
