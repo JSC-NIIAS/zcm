@@ -1,4 +1,4 @@
-#include "lockfile.h"
+#include "zcm/util/lockfile.h"
 #include "zcm/util/debug.h"
 
 #include <stdlib.h>

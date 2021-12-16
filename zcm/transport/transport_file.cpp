@@ -4,6 +4,7 @@
 
 #include "zcm/zcm-cpp.hpp"
 #include "zcm/util/debug.h"
+//#include "zcm/util/lockfile.h"
 
 #include "util/Types.hpp"
 #include "util/TimeUtil.hpp"
